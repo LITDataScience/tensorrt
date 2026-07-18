@@ -19,9 +19,28 @@ from setuptools import find_packages, setup
 
 setup(
     name='tftrt',
-    version='0.0',
-    description='NVIDIA TensorRT integration in TensorFlow',
-    author='NVIDIA',
+    version='0.1.0',
+    description=(
+        'Hardened TF-TRT benchmark suite: ImageNet, COCO, and Transformers '
+        'with TensorRT-accelerated TensorFlow inference'
+    ),
+    long_description=(
+        'See TENSORRT_DOC.md and https://github.com/LITDataScience/tensorrt '
+        'for the interactive user & creator guide.'
+    ),
+    long_description_content_type='text/plain',
+    author='NVIDIA / LITDataScience contributors',
+    url='https://github.com/LITDataScience/tensorrt',
+    license='Apache-2.0',
     packages=find_packages(),
-    install_requires=['tqdm']
+    install_requires=['tqdm'],
+    python_requires='>=3.7',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 3',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    ],
 )

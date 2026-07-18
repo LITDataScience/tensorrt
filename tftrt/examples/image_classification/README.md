@@ -1,5 +1,7 @@
 # Image classification example
 
+> Full interactive guide: [`TENSORRT_DOC.md`](../../../TENSORRT_DOC.md)
+
 The example script `image_classification.py` is for benchmarking and validating inference
 on image classification models using TF-TRT in TensorFlow 2.0.
 
@@ -58,36 +60,36 @@ validation data are located under `/data/imagenet/train-val-tfrecord`, you can
 evaluate inference with TF-TRT integration using the pre-trained ResNet V1.5 50
 model as follows:
 
-```
+```bash
 python image_classification.py \
     --data_dir /data/imagenet/train-val-tfrecord \
     --calib_data_dir /data/imagenet/train-val-tfrecord \
-    --saved_model_dir /models/resnet_v1.5_50_saved_model/ \
-    --model resnet_v1.5_50_tfv2 \
+    --input_saved_model_dir /models/resnet_v1.5_50_tfv2 \
     --num_warmup_iterations 50 \
-    --num_calib_inputs 128
+    --num_calib_inputs 128 \
     --display_every 10 \
     --use_tftrt \
     --optimize_offline \
     --precision INT8 \
     --max_workspace_size $((2**32)) \
-    --batch_size 128
+    --batch_size 128 \
+    --preprocess_method vgg \
+    --num_classes 1000
 ```
 
 Where:
 
-`--saved_model_dir`: Input model to optimize with TF-TRT
-
-`--model`: Name of the model (only used to get the right preprocessing)
+`--input_saved_model_dir`: Input SavedModel to optimize with TF-TRT
 
 `--data_dir`: Path to the ImageNet TFRecord validation files.
 
 `--use_tftrt`: Convert the graph to a TensorRT graph.
 
-`--precision`: Precision mode to use, in this case FP16.
+`--precision`: Precision mode (`FP32`, `FP16`, or `INT8`).
 
-`--mode`: Which mode to use (validation or benchmark). In validation we run inference with accuracy and performance measurments, in benchmark only performance.
+`--model_sha256`: Optional full-tree integrity digest (see `../hash_saved_model.py`).
 
+Prefer the wrappers under `scripts/` (they set preprocess / class count for you).
 Run with `--help` to see all available options.
 
 
