@@ -127,7 +127,7 @@ def get_dataset(data_files, batch_size, use_synthetic_data, preprocess_method, i
                     fancy_upscaling=False,
                     dct_method='INTEGER_FAST'
                 )
-            except:
+            except tf.errors.InvalidArgumentError:
                 image = tf.image.decode_png(imgdata, channels=3)
             # Use model's preprocessing function
             image = preprocess_fn(image, input_size, input_size)
@@ -236,6 +236,7 @@ if __name__ == '__main__':
         input_signature_key=args.input_signature_key,
         max_workspace_size_bytes=args.max_workspace_size,
         minimum_segment_size=args.minimum_segment_size,
+        model_sha256=args.model_sha256,
         num_calib_inputs=args.num_calib_inputs,
         optimize_offline=args.optimize_offline,
         optimize_offline_input_fn=optimize_offline_input_fn,

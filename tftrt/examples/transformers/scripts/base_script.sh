@@ -1,4 +1,8 @@
 #!/bin/bash
+# Secure launcher for transformers TF-TRT benchmarks.
+# Uses argv arrays + env assignments instead of `eval` to avoid shell injection.
+
+set -euo pipefail
 
 nvidia-smi
 
@@ -7,45 +11,37 @@ MODEL_NAME=""
 MODEL_DIR=""
 
 # Default Argument Values
-NVIDIA_TF32_OVERRIDE=""
+NVIDIA_TF32_OVERRIDE_VALUE=""
+TF_XLA_FLAGS_VALUE=""
 
 # TODO: remove when real dataloader is implemented
 DATA_DIR="/tmp"
 
-BYPASS_ARGUMENTS=""
-TF_AUTO_JIT_XLA_FLAG=""
+BYPASS_ARGUMENTS=()
 
 # Loop through arguments and process them
-for arg in "$@"
-do
+for arg in "$@"; do
     case $arg in
         --model_name=*)
         MODEL_NAME="${arg#*=}"
-        shift # Remove --model_name from processing
         ;;
         --no_tf32)
-        NVIDIA_TF32_OVERRIDE="NVIDIA_TF32_OVERRIDE=0"
-        shift # Remove --no_tf32 from processing
+        NVIDIA_TF32_OVERRIDE_VALUE="0"
         ;;
         --data_dir=*)
-        shift # Remove --data_dir= from processing
         ;;
         --vocab_size=*)
-        shift # Remove --vocab_size= from processing
         ;;
         --minimum_segment_size=*)
-        shift # Remove --minimum_segment_size= from processing
         ;;
         --input_saved_model_dir=*)
         MODEL_DIR="${arg#*=}"
-        shift # Remove --input_saved_model_dir= from processing
         ;;
         --use_xla_auto_jit)
-        TF_AUTO_JIT_XLA_FLAG="TF_XLA_FLAGS=--tf_xla_auto_jit=2"
-        shift # Remove --use_xla_auto_jit from processing
+        TF_XLA_FLAGS_VALUE="--tf_xla_auto_jit=2"
         ;;
         *)
-        BYPASS_ARGUMENTS=" ${BYPASS_ARGUMENTS} ${arg}"
+        BYPASS_ARGUMENTS+=("${arg}")
         ;;
     esac
 done
@@ -78,14 +74,14 @@ echo ""
 echo "[*] DATA_DIR: ${DATA_DIR}"
 echo "[*] MODEL_DIR: ${MODEL_DIR}"
 echo ""
-echo "[*] NVIDIA_TF32_OVERRIDE: ${NVIDIA_TF32_OVERRIDE}"
+echo "[*] NVIDIA_TF32_OVERRIDE: ${NVIDIA_TF32_OVERRIDE_VALUE}"
 echo ""
 # Custom Transormers Task Flags
 echo "[*] MIN_SEGMENT_SIZE: ${MIN_SEGMENT_SIZE}"
 echo "[*] VOCAB_SIZE: ${VOCAB_SIZE}"
 echo ""
-echo "[*] TF_AUTO_JIT_XLA_FLAG: ${TF_AUTO_JIT_XLA_FLAG}"
-echo "[*] BYPASS_ARGUMENTS: $(echo \"${BYPASS_ARGUMENTS}\" | tr -s ' ')"
+echo "[*] TF_XLA_FLAGS: ${TF_XLA_FLAGS_VALUE}"
+echo "[*] BYPASS_ARGUMENTS: ${BYPASS_ARGUMENTS[*]:-}"
 
 echo -e "********************************************************************\n"
 
@@ -125,22 +121,30 @@ fi
 # %%%%%%%%%%%%%%%%%%%%%%% ARGUMENT VALIDATION %%%%%%%%%%%%%%%%%%%%%%% #
 
 BENCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
-cd ${BENCH_DIR}
+cd "${BENCH_DIR}"
 
-# Execute the example
+# Execute the example without shell evaluation of user-controlled strings.
+CMD=(
+    python transformers.py
+    --input_saved_model_dir "${INPUT_SAVED_MODEL_DIR}"
+    --data_dir "${DATA_DIR}"
+    --vocab_size "${VOCAB_SIZE}"
+    --minimum_segment_size "${MIN_SEGMENT_SIZE}"
+)
+if ((${#BYPASS_ARGUMENTS[@]})); then
+    CMD+=("${BYPASS_ARGUMENTS[@]}")
+fi
 
-PREPEND_COMMAND="${TF_AUTO_JIT_XLA_FLAG} ${NVIDIA_TF32_OVERRIDE}"
-
-COMMAND="${PREPEND_COMMAND} python transformers.py \
-    --input_saved_model_dir ${INPUT_SAVED_MODEL_DIR} \
-    --data_dir ${DATA_DIR} \
-    --vocab_size ${VOCAB_SIZE} \
-    --minimum_segment_size ${MIN_SEGMENT_SIZE} \
-    ${BYPASS_ARGUMENTS}"
-
-COMMAND=$(echo "${COMMAND}" | tr -s " ")
-
-echo -e "**Executing:**\n\n${COMMAND}\n"
+echo -e "**Executing:**\n"
+printf '  %q' "${CMD[@]}"
+echo -e "\n"
 sleep 5
 
-eval ${COMMAND}
+if [[ -n "${NVIDIA_TF32_OVERRIDE_VALUE}" ]]; then
+    export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE_VALUE}"
+fi
+if [[ -n "${TF_XLA_FLAGS_VALUE}" ]]; then
+    export TF_XLA_FLAGS="${TF_XLA_FLAGS_VALUE}"
+fi
+
+"${CMD[@]}"

@@ -38,6 +38,13 @@ class HFModel(tf.Module):
 
 if __name__ == "__main__":
 
+    # Hub artifacts are untrusted code/weights until verified. Prefer a private
+    # mirror / pinned revision + checksum in production pipelines.
+    print(
+        "[!] SECURITY: Hugging Face from_pretrained downloads remote weights. "
+        "Use trusted revisions and verify artifacts before deploying."
+    )
+
     MODEL_NAMES = [
         "bert-base-uncased",
         "bert-base-cased",

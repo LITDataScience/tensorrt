@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+"""Object detection TF-TRT benchmark package.
 
-from .object_detection import download_model, download_dataset, optimize_model, benchmark_model
-from .test import test
+Historical helpers (download_model / download_dataset / optimize_model /
+benchmark_model / test) were removed from this tree. Import the active
+benchmark entrypoints instead.
+"""
+
+from .object_detection import BenchmarkRunner, CommandLineAPI, get_dataset
+
+__all__ = ["BenchmarkRunner", "CommandLineAPI", "get_dataset"]

@@ -16,20 +16,29 @@
 # limitations under the License.
 # =============================================================================
 
-set -v
+set -euo pipefail
 
-echo Install PyBind11 and UJson
-pip install pybind11 ujson
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+COCO_API_DIR="${SCRIPT_DIR}/../third_party/cocoapi"
+PYCOCO_DIR="${COCO_API_DIR}/PythonAPI"
 
-echo Install Cython...
-pip install Cython
+if [[ ! -d "${PYCOCO_DIR}" ]]; then
+    echo "ERROR: COCO API sources missing at \`${PYCOCO_DIR}\`."
+    echo "Initialize the git submodule first:"
+    echo "  git submodule update --init --recursive"
+    exit 1
+fi
 
-echo Install cocodataset/cocoapi/PythonAPI...
-COCO_API_DIR=../third_party/cocoapi
-PYCOCO_DIR=$COCO_API_DIR/PythonAPI
-pushd $PYCOCO_DIR
+echo "Install PyBind11 and UJson (pinned for supply-chain hygiene)"
+# Pins are minimum compatible floors used by this example suite; bump deliberately.
+pip install "pybind11>=2.10,<3" "ujson>=5.7,<6"
+
+echo "Install Cython..."
+pip install "Cython>=0.29,<4"
+
+echo "Install cocodataset/cocoapi/PythonAPI..."
+pushd "${PYCOCO_DIR}"
 python setup.py build_ext --inplace
 make
-# pip install .
 python setup.py install
 popd

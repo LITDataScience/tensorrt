@@ -1,4 +1,8 @@
 #!/bin/bash
+# Secure launcher for image classification TF-TRT benchmarks.
+# Uses argv arrays + env assignments instead of `eval` to avoid shell injection.
+
+set -euo pipefail
 
 nvidia-smi
 
@@ -8,43 +12,34 @@ DATA_DIR=""
 MODEL_DIR=""
 
 # Default Argument Values
-NVIDIA_TF32_OVERRIDE=""
-
-BYPASS_ARGUMENTS=""
-TF_AUTO_JIT_XLA_FLAG=""
+NVIDIA_TF32_OVERRIDE_VALUE=""
+TF_XLA_FLAGS_VALUE=""
+BYPASS_ARGUMENTS=()
 
 # Loop through arguments and process them
-for arg in "$@"
-do
+for arg in "$@"; do
     case $arg in
         --model_name=*)
         MODEL_NAME="${arg#*=}"
-        shift # Remove --model_name from processing
         ;;
         --no_tf32)
-        NVIDIA_TF32_OVERRIDE="NVIDIA_TF32_OVERRIDE=0"
-        shift # Remove --no_tf32 from processing
+        NVIDIA_TF32_OVERRIDE_VALUE="0"
         ;;
         --data_dir=*)
         DATA_DIR="${arg#*=}"
-        shift # Remove --data_dir= from processing
         ;;
         --input_saved_model_dir=*)
         MODEL_DIR="${arg#*=}"
-        shift # Remove --input_saved_model_dir= from processing
         ;;
         --output_tensor_names=*)
-        shift # Remove --output_tensor_names= from processing
         ;;
         --output_tensor_indices=*)
-        shift # Remove --output_tensor_indices= from processing
         ;;
         --use_xla_auto_jit)
-        TF_AUTO_JIT_XLA_FLAG="TF_XLA_FLAGS=--tf_xla_auto_jit=2"
-        shift # Remove --use_xla_auto_jit from processing
+        TF_XLA_FLAGS_VALUE="--tf_xla_auto_jit=2"
         ;;
         *)
-        BYPASS_ARGUMENTS=" ${BYPASS_ARGUMENTS} ${arg}"
+        BYPASS_ARGUMENTS+=("${arg}")
         ;;
     esac
 done
@@ -54,8 +49,8 @@ done
 INPUT_SIZE=224
 PREPROCESS_METHOD="vgg"
 NUM_CLASSES=1001
-OUTPUT_TENSOR_NAME_FLAG=""
-OUTPUT_TENSOR_IDX_FLAG=""
+OUTPUT_TENSOR_NAME_FLAG=()
+OUTPUT_TENSOR_IDX_FLAG=()
 
 case ${MODEL_NAME} in
   "inception_v3" | "inception_v4")
@@ -82,8 +77,8 @@ case ${MODEL_NAME} in
 
   "resnet50-v1.5_tf1_ngc" )
     NUM_CLASSES=1000
-    OUTPUT_TENSOR_IDX_FLAG="--output_tensor_indices=0"
-    OUTPUT_TENSOR_NAME_FLAG="--output_tensor_names=classes"
+    OUTPUT_TENSOR_IDX_FLAG=(--output_tensor_indices=0)
+    OUTPUT_TENSOR_NAME_FLAG=(--output_tensor_names=classes)
     PREPROCESS_METHOD="resnet50_v1_5_tf1_ngc_preprocess"
     ;;
 
@@ -100,17 +95,17 @@ echo ""
 echo "[*] DATA_DIR: ${DATA_DIR}"
 echo "[*] MODEL_DIR: ${MODEL_DIR}"
 echo ""
-echo "[*] NVIDIA_TF32_OVERRIDE: ${NVIDIA_TF32_OVERRIDE}"
+echo "[*] NVIDIA_TF32_OVERRIDE: ${NVIDIA_TF32_OVERRIDE_VALUE}"
 echo ""
 # Custom Image Classification Task Flags
 echo "[*] INPUT_SIZE: ${INPUT_SIZE}"
 echo "[*] PREPROCESS_METHOD: ${PREPROCESS_METHOD}"
 echo "[*] NUM_CLASSES: ${NUM_CLASSES}"
-echo "[*] OUTPUT_TENSOR_IDX_FLAG: ${OUTPUT_TENSOR_IDX_FLAG}"
-echo "[*] OUTPUT_TENSOR_NAME_FLAG: ${OUTPUT_TENSOR_NAME_FLAG}"
+echo "[*] OUTPUT_TENSOR_IDX_FLAG: ${OUTPUT_TENSOR_IDX_FLAG[*]:-}"
+echo "[*] OUTPUT_TENSOR_NAME_FLAG: ${OUTPUT_TENSOR_NAME_FLAG[*]:-}"
 echo ""
-echo "[*] TF_AUTO_JIT_XLA_FLAG: ${TF_AUTO_JIT_XLA_FLAG}"
-echo "[*] BYPASS_ARGUMENTS: $(echo \"${BYPASS_ARGUMENTS}\" | tr -s ' ')"
+echo "[*] TF_XLA_FLAGS: ${TF_XLA_FLAGS_VALUE}"
+echo "[*] BYPASS_ARGUMENTS: ${BYPASS_ARGUMENTS[*]:-}"
 echo -e "********************************************************************\n"
 
 # ======================= ARGUMENT VALIDATION ======================= #
@@ -149,27 +144,42 @@ fi
 # %%%%%%%%%%%%%%%%%%%%%%% ARGUMENT VALIDATION %%%%%%%%%%%%%%%%%%%%%%% #
 
 BENCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
-cd ${BENCH_DIR}
+cd "${BENCH_DIR}"
 
-# Execute the example
+# Private, collision-resistant output directory (avoids predictable /tmp/$RANDOM)
+OUTPUT_SAVED_MODEL_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tftrt_ic_XXXXXX")"
 
-PREPEND_COMMAND="${TF_AUTO_JIT_XLA_FLAG} ${NVIDIA_TF32_OVERRIDE}"
+# Execute the example without shell evaluation of user-controlled strings.
+CMD=(
+    python image_classification.py
+    --data_dir "${DATA_DIR}"
+    --calib_data_dir "${DATA_DIR}"
+    --input_saved_model_dir "${INPUT_SAVED_MODEL_DIR}"
+    --output_saved_model_dir "${OUTPUT_SAVED_MODEL_DIR}"
+    --input_size "${INPUT_SIZE}"
+    --preprocess_method "${PREPROCESS_METHOD}"
+    --num_classes "${NUM_CLASSES}"
+)
+if ((${#OUTPUT_TENSOR_IDX_FLAG[@]})); then
+    CMD+=("${OUTPUT_TENSOR_IDX_FLAG[@]}")
+fi
+if ((${#OUTPUT_TENSOR_NAME_FLAG[@]})); then
+    CMD+=("${OUTPUT_TENSOR_NAME_FLAG[@]}")
+fi
+if ((${#BYPASS_ARGUMENTS[@]})); then
+    CMD+=("${BYPASS_ARGUMENTS[@]}")
+fi
 
-COMMAND="${PREPEND_COMMAND} python image_classification.py \
-    --data_dir ${DATA_DIR} \
-    --calib_data_dir ${DATA_DIR} \
-    --input_saved_model_dir ${INPUT_SAVED_MODEL_DIR} \
-    --output_saved_model_dir /tmp/$RANDOM \
-    --input_size ${INPUT_SIZE} \
-    --preprocess_method ${PREPROCESS_METHOD} \
-    --num_classes ${NUM_CLASSES} \
-    ${OUTPUT_TENSOR_IDX_FLAG} \
-    ${OUTPUT_TENSOR_NAME_FLAG} \
-    ${BYPASS_ARGUMENTS}"
-
-COMMAND=$(echo "${COMMAND}" | tr -s " ")
-
-echo -e "**Executing:**\n\n${COMMAND}\n"
+echo -e "**Executing:**\n"
+printf '  %q' "${CMD[@]}"
+echo -e "\n"
 sleep 5
 
-eval ${COMMAND}
+if [[ -n "${NVIDIA_TF32_OVERRIDE_VALUE}" ]]; then
+    export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE_VALUE}"
+fi
+if [[ -n "${TF_XLA_FLAGS_VALUE}" ]]; then
+    export TF_XLA_FLAGS="${TF_XLA_FLAGS_VALUE}"
+fi
+
+"${CMD[@]}"

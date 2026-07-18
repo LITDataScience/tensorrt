@@ -187,6 +187,7 @@ if __name__ == '__main__':
         input_signature_key=args.input_signature_key,
         max_workspace_size_bytes=args.max_workspace_size,
         minimum_segment_size=args.minimum_segment_size,
+        model_sha256=args.model_sha256,
         num_calib_inputs=args.num_calib_inputs,
         optimize_offline=args.optimize_offline,
         optimize_offline_input_fn=optimize_offline_input_fn,

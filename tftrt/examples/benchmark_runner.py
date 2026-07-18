@@ -25,6 +25,15 @@ from tensorflow.python.saved_model import tag_constants
 from tensorflow.python.saved_model.signature_constants import \
     DEFAULT_SERVING_SIGNATURE_DEF_KEY
 
+from path_utils import verify_saved_model_sha256
+
+
+_UNTRUSTED_MODEL_WARNING = (
+    "SECURITY: Loading a TensorFlow SavedModel executes model graph code. "
+    "Only load models from trusted sources. Pass --model_sha256=<hex> to "
+    "verify saved_model.pb / saved_model.pbtxt integrity before load."
+)
+
 
 def _print_dict(input_dict, prefix='  ', postfix=''):
     for k, v in sorted(input_dict.items()):
@@ -88,6 +97,7 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
         input_signature_key=DEFAULT_SERVING_SIGNATURE_DEF_KEY,
         max_workspace_size_bytes=DEFAULT_TRT_MAX_WORKSPACE_SIZE_BYTES,
         minimum_segment_size=5,
+        model_sha256=None,
         num_calib_inputs=None,
         optimize_offline=False,
         optimize_offline_input_fn=None,
@@ -130,6 +140,7 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
             input_signature_key=input_signature_key,
             max_workspace_size_bytes=max_workspace_size_bytes,
             minimum_segment_size=minimum_segment_size,
+            model_sha256=model_sha256,
             num_calib_inputs=num_calib_inputs,
             optimize_offline=optimize_offline,
             optimize_offline_input_fn=optimize_offline_input_fn,
@@ -207,6 +218,7 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
         input_signature_key=DEFAULT_SERVING_SIGNATURE_DEF_KEY,
         max_workspace_size_bytes=DEFAULT_TRT_MAX_WORKSPACE_SIZE_BYTES,
         minimum_segment_size=5,
+        model_sha256=None,
         num_calib_inputs=None,
         optimize_offline=False,
         optimize_offline_input_fn=None,
@@ -218,6 +230,17 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
         precision: str, floating point precision (FP32, FP16, or INT8)
         returns: TF function that is ready to run for inference
         """
+
+        print("\n[!] {}".format(_UNTRUSTED_MODEL_WARNING))
+        if model_sha256:
+            verified_path, digest = verify_saved_model_sha256(
+                input_saved_model_dir, model_sha256
+            )
+            print("[*] SavedModel integrity OK: {} (sha256={})".format(
+                verified_path, digest
+            ))
+        else:
+            print("[!] No --model_sha256 provided; skipping integrity check.")
 
         if not use_tftrt:
 
