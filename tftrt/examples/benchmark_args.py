@@ -40,6 +40,16 @@ class BaseCommandLineAPI(object):
                                   help='Directory in which the converted model '
                                        'will be saved')
 
+        self._parser.add_argument(
+            '--model_sha256',
+            type=str,
+            default=None,
+            help='Optional SHA-256 (hex) over the entire input SavedModel '
+                 'directory tree (graph + variables/ + assets/, sorted walk). '
+                 'When set, verified before load/conversion. Strongly '
+                 'recommended for untrusted models.'
+        )
+
         # ======================== Dataset Directories ======================= #
 
         self._parser.add_argument('--calib_data_dir', type=str,
@@ -204,6 +214,15 @@ class BaseCommandLineAPI(object):
         elif not os.path.isdir(args.data_dir):
             raise RuntimeError("The path --data_dir=`{}` doesn't exist or is "
                                "not a directory".format(args.data_dir))
+
+        if args.input_saved_model_dir is None:
+            raise ValueError("--input_saved_model_dir is required")
+
+        elif not os.path.isdir(args.input_saved_model_dir):
+            raise RuntimeError(
+                "The path --input_saved_model_dir=`{}` doesn't exist or is "
+                "not a directory".format(args.input_saved_model_dir)
+            )
 
         if (
             args.num_iterations is not None and

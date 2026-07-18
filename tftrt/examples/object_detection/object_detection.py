@@ -21,6 +21,7 @@ import sys
 import logging
 import time
 import shutil
+import tempfile
 
 from functools import partial
 import ujson as json
@@ -39,6 +40,7 @@ sys.path.insert(0, parentdir)
 
 from benchmark_args import BaseCommandLineAPI
 from benchmark_runner import BaseBenchmarkRunner
+from path_utils import safe_join_under
 
 
 class CommandLineAPI(BaseCommandLineAPI):
@@ -54,6 +56,16 @@ class CommandLineAPI(BaseCommandLineAPI):
 
         self._parser.add_argument('--annotation_path', type=str,
                                   help='Path that contains COCO annotations')
+
+    def _validate_args(self, args):
+        super(CommandLineAPI, self)._validate_args(args)
+        if not args.annotation_path:
+            raise ValueError("--annotation_path is required")
+        if not os.path.isfile(args.annotation_path):
+            raise RuntimeError(
+                "The path --annotation_path=`{}` doesn't exist or is "
+                "not a file".format(args.annotation_path)
+            )
 
 
 class BenchmarkRunner(BaseBenchmarkRunner):
@@ -110,26 +122,29 @@ class BenchmarkRunner(BaseBenchmarkRunner):
                 }
                 coco_detections.append(coco_detection)
 
-        # write coco detections to file
-        tmp_dir = "/tmp/tmp_detection_results"
-        os.makedirs(tmp_dir)
-
-        coco_detections_path = os.path.join(tmp_dir, 'coco_detections.json')
-        with open(coco_detections_path, 'w') as f:
-            json.dump(coco_detections, f)
-        cocoDt = coco.loadRes(coco_detections_path)
-
-        shutil.rmtree(tmp_dir)
+        # write coco detections to a private temp dir (avoids /tmp race / symlink hijack)
+        tmp_dir = tempfile.mkdtemp(prefix="tftrt_coco_detections_")
+        try:
+            coco_detections_path = os.path.join(tmp_dir, 'coco_detections.json')
+            # Restrictive perms: owner read/write only for the results file
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            mode = 0o600
+            fd = os.open(coco_detections_path, flags, mode)
+            with os.fdopen(fd, 'w') as f:
+                json.dump(coco_detections, f)
+            cocoDt = coco.loadRes(coco_detections_path)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
         # compute coco metrics
-        eval = COCOeval(coco, cocoDt, 'bbox')
-        eval.params.imgIds = image_ids
+        coco_eval = COCOeval(coco, cocoDt, 'bbox')
+        coco_eval.params.imgIds = image_ids
 
-        eval.evaluate()
-        eval.accumulate()
-        eval.summarize()
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
 
-        return eval.stats[0]
+        return coco_eval.stats[0]
 
     def process_model_output(self, outputs, **kwargs):
         # outputs = graph_func(batch_images)
@@ -154,7 +169,10 @@ def get_dataset(batch_size,
 
     for image_id in image_ids:
         coco_img = coco.imgs[image_id]
-        image_paths.append(os.path.join(images_dir, coco_img['file_name']))
+        # Annotation-controlled file_name must stay under images_dir
+        image_paths.append(
+            safe_join_under(images_dir, coco_img['file_name'])
+        )
 
     dataset = tf.data.Dataset.from_tensor_slices(image_paths)
 
@@ -250,6 +268,7 @@ if __name__ == '__main__':
         input_signature_key=args.input_signature_key,
         max_workspace_size_bytes=args.max_workspace_size,
         minimum_segment_size=args.minimum_segment_size,
+        model_sha256=args.model_sha256,
         num_calib_inputs=args.num_calib_inputs,
         optimize_offline=args.optimize_offline,
         optimize_offline_input_fn=optimize_offline_input_fn,
