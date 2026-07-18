@@ -112,31 +112,42 @@ echo -e "********************************************************************\n"
 
 # Dataset Directory
 
-if [[ -z ${DATA_DIR} ]]; then
+if [[ -z "${DATA_DIR}" ]]; then
     echo "ERROR: \`--data_dir=/path/to/directory\` is missing."
     exit 1
 fi
 
-if [[ ! -d ${DATA_DIR} ]]; then
+if [[ ! -d "${DATA_DIR}" ]]; then
     echo "ERROR: \`--data_dir=/path/to/directory\` does not exist. [Received: \`${DATA_DIR}\`]"
     exit 1
 fi
 
 # ----------------------  Model Directory --------------
 
-if [[ -z ${MODEL_DIR} ]]; then
+if [[ -z "${MODEL_DIR}" ]]; then
     echo "ERROR: \`--input_saved_model_dir=/path/to/directory\` is missing."
     exit 1
 fi
 
-if [[ ! -d ${MODEL_DIR} ]]; then
+if [[ ! -d "${MODEL_DIR}" ]]; then
     echo "ERROR: \`--input_saved_model_dir=/path/to/directory\` does not exist. [Received: \`${MODEL_DIR}\`]"
     exit 1
 fi
 
-INPUT_SAVED_MODEL_DIR=${MODEL_DIR}/${MODEL_NAME}
+if [[ -z "${MODEL_NAME}" ]]; then
+    echo "ERROR: \`--model_name=...\` is missing."
+    exit 1
+fi
 
-if [[ ! -d ${INPUT_SAVED_MODEL_DIR} ]]; then
+# Reject path separators / traversal in model name before joining paths.
+if [[ "${MODEL_NAME}" == *"/"* || "${MODEL_NAME}" == *".."* ]]; then
+    echo "ERROR: \`--model_name\` contains illegal path characters. [Received: \`${MODEL_NAME}\`]"
+    exit 1
+fi
+
+INPUT_SAVED_MODEL_DIR="${MODEL_DIR}/${MODEL_NAME}"
+
+if [[ ! -d "${INPUT_SAVED_MODEL_DIR}" ]]; then
     echo "ERROR: the directory \`${INPUT_SAVED_MODEL_DIR}\` does not exist."
     exit 1
 fi
@@ -171,7 +182,7 @@ if ((${#BYPASS_ARGUMENTS[@]})); then
 fi
 
 echo -e "**Executing:**\n"
-printf '  %q' "${CMD[@]}"
+printf '%q ' "${CMD[@]}"
 echo -e "\n"
 sleep 5
 

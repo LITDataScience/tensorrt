@@ -79,51 +79,62 @@ echo -e "********************************************************************\n"
 
 # Dataset Directory
 
-if [[ -z ${DATA_DIR} ]]; then
+if [[ -z "${DATA_DIR}" ]]; then
     echo "ERROR: \`--data_dir=/path/to/directory\` is missing."
     exit 1
 fi
 
-if [[ ! -d ${DATA_DIR} ]]; then
+if [[ ! -d "${DATA_DIR}" ]]; then
     echo "ERROR: \`--data_dir=/path/to/directory\` does not exist. [Received: \`${DATA_DIR}\`]"
     exit 1
 fi
 
-VAL_DATA_DIR=${DATA_DIR}/val2017
-ANNOTATIONS_DATA_FILE=${DATA_DIR}/annotations/instances_val2017.json
+VAL_DATA_DIR="${DATA_DIR}/val2017"
+ANNOTATIONS_DATA_FILE="${DATA_DIR}/annotations/instances_val2017.json"
 
-if [[ ! -d ${VAL_DATA_DIR} ]]; then
+if [[ ! -d "${VAL_DATA_DIR}" ]]; then
     echo "ERROR: the directory \`${VAL_DATA_DIR}\` does not exist."
     exit 1
 fi
 
-if [[ ! -f ${ANNOTATIONS_DATA_FILE} ]]; then
+if [[ ! -f "${ANNOTATIONS_DATA_FILE}" ]]; then
     echo "ERROR: the file \`${ANNOTATIONS_DATA_FILE}\` does not exist."
     exit 1
 fi
 
 # ----------------------  Model Directory --------------
 
-if [[ -z ${MODEL_DIR} ]]; then
+if [[ -z "${MODEL_DIR}" ]]; then
     echo "ERROR: \`--input_saved_model_dir=/path/to/directory\` is missing."
     exit 1
 fi
 
-if [[ ! -d ${MODEL_DIR} ]]; then
+if [[ ! -d "${MODEL_DIR}" ]]; then
     echo "ERROR: \`--input_saved_model_dir=/path/to/directory\` does not exist. [Received: \`${MODEL_DIR}\`]"
     exit 1
 fi
 
-INPUT_SAVED_MODEL_DIR=${MODEL_DIR}/${MODEL_NAME}_640_bs${BATCH_SIZE}
-
-if [[ ! -d ${INPUT_SAVED_MODEL_DIR} ]]; then
-    echo "ERROR: the directory \`${INPUT_SAVED_MODEL_DIR}\` does not exist."
+if [[ -z "${MODEL_NAME}" ]]; then
+    echo "ERROR: \`--model_name=...\` is missing."
     exit 1
 fi
 
-# Validate BATCH_SIZE is a positive integer (defense in depth for argv construction)
+# Reject path separators / traversal in model name before joining paths.
+if [[ "${MODEL_NAME}" == *"/"* || "${MODEL_NAME}" == *".."* ]]; then
+    echo "ERROR: \`--model_name\` contains illegal path characters. [Received: \`${MODEL_NAME}\`]"
+    exit 1
+fi
+
+# Validate BATCH_SIZE before it is embedded in the model directory path.
 if ! [[ "${BATCH_SIZE}" =~ ^[0-9]+$ ]] || [[ "${BATCH_SIZE}" -eq 0 ]]; then
     echo "ERROR: \`--batch_size\` must be a positive integer. [Received: \`${BATCH_SIZE}\`]"
+    exit 1
+fi
+
+INPUT_SAVED_MODEL_DIR="${MODEL_DIR}/${MODEL_NAME}_640_bs${BATCH_SIZE}"
+
+if [[ ! -d "${INPUT_SAVED_MODEL_DIR}" ]]; then
+    echo "ERROR: the directory \`${INPUT_SAVED_MODEL_DIR}\` does not exist."
     exit 1
 fi
 
@@ -132,11 +143,9 @@ fi
 BENCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 cd "${BENCH_DIR}"
 
-# Step 1: Installing dependencies if needed:
-python -c "from pycocotools.coco import COCO" > /dev/null 2>&1
-DEPENDENCIES_STATUS=$?
-
-if [[ ${DEPENDENCIES_STATUS} != 0 ]]; then
+# Step 1: Installing dependencies if needed.
+# Under `set -e`, a failing probe must be in a conditional or the script exits.
+if ! python -c "from pycocotools.coco import COCO" > /dev/null 2>&1; then
     bash install_dependencies.sh
 fi
 
@@ -159,7 +168,7 @@ if ((${#BYPASS_ARGUMENTS[@]})); then
 fi
 
 echo -e "**Executing:**\n"
-printf '  %q' "${CMD[@]}"
+printf '%q ' "${CMD[@]}"
 echo -e "\n"
 sleep 5
 

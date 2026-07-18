@@ -31,7 +31,7 @@ from path_utils import verify_saved_model_sha256
 _UNTRUSTED_MODEL_WARNING = (
     "SECURITY: Loading a TensorFlow SavedModel executes model graph code. "
     "Only load models from trusted sources. Pass --model_sha256=<hex> to "
-    "verify saved_model.pb / saved_model.pbtxt integrity before load."
+    "verify the entire SavedModel directory tree before load."
 )
 
 
@@ -231,15 +231,15 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
         returns: TF function that is ready to run for inference
         """
 
-        print("\n[!] {}".format(_UNTRUSTED_MODEL_WARNING))
         if model_sha256:
             verified_path, digest = verify_saved_model_sha256(
                 input_saved_model_dir, model_sha256
             )
-            print("[*] SavedModel integrity OK: {} (sha256={})".format(
+            print("\n[*] SavedModel integrity OK: {} (sha256={})".format(
                 verified_path, digest
             ))
         else:
+            print("\n[!] {}".format(_UNTRUSTED_MODEL_WARNING))
             print("[!] No --model_sha256 provided; skipping integrity check.")
 
         if not use_tftrt:

@@ -44,9 +44,10 @@ class BaseCommandLineAPI(object):
             '--model_sha256',
             type=str,
             default=None,
-            help='Optional SHA-256 (hex) of saved_model.pb / saved_model.pbtxt. '
-                 'When set, the input SavedModel is integrity-checked before '
-                 'load/conversion. Strongly recommended for untrusted models.'
+            help='Optional SHA-256 (hex) over the entire input SavedModel '
+                 'directory tree (graph + variables/ + assets/, sorted walk). '
+                 'When set, verified before load/conversion. Strongly '
+                 'recommended for untrusted models.'
         )
 
         # ======================== Dataset Directories ======================= #
