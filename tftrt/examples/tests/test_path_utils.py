@@ -35,6 +35,9 @@ from path_utils import (
     verify_saved_model_sha256,
 )
 
+# hash_saved_model CLI (sibling module)
+import hash_saved_model  # noqa: E402
+
 
 class SafeJoinUnderTest(unittest.TestCase):
 

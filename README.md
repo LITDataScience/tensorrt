@@ -1,84 +1,105 @@
-# Documentation for TensorRT in TensorFlow (TF-TRT)
+# TF-TRT Examples — Hardened TensorFlow ↔ TensorRT Suite
 
-The documentation on how to accelerate inference in TensorFlow with TensorRT (TF-TRT) is here: https://docs.nvidia.com/deeplearning/dgx/tf-trt-user-guide/index.html
+<p align="center">
+  <a href="https://github.com/LITDataScience/tensorrt"><img alt="GitHub" src="https://img.shields.io/badge/repo-LITDataScience%2Ftensorrt-181717?logo=github" /></a>
+  <a href="https://github.com/LITDataScience/tensorrt/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/LITDataScience/tensorrt?style=social" /></a>
+  <a href="CHANGELOG.md"><img alt="Changelog" src="https://img.shields.io/badge/changelog-0.1.0-76b900" /></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue" /></a>
+  <a href="VULNERABILITY.md"><img alt="Security" src="https://img.shields.io/badge/security-hardened-success" /></a>
+</p>
 
-# Examples for TensorRT in TensorFlow (TF-TRT)
+**Benchmark and verify TensorRT-accelerated TensorFlow inference** for ImageNet classification, COCO detection, and Hugging Face transformers — with launchers that don’t `eval` your CLI, path-safe data loading, and optional full-tree SavedModel integrity checks.
 
-This repository contains a number of different examples
-that show how to use
-[TF-TRT](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/tensorrt).
-TF-TRT is a part of TensorFlow
-that optimizes TensorFlow graphs using
-[TensorRT](https://developer.nvidia.com/tensorrt).
-We have used these examples to verify the accuracy and
-performance of TF-TRT. For more information see
-[Verified Models](https://docs.nvidia.com/deeplearning/dgx/tf-trt-user-guide/index.html#verified-models).
+> **Start here → [`TENSORRT_DOC.md`](TENSORRT_DOC.md)** (interactive user & creator guide)
+
+If this repo helps you ship faster inference, **[⭐ star it](https://github.com/LITDataScience/tensorrt)** so other engineers find the hardened fork.
+
+---
+
+## Why this repo
+
+| | Classic TF-TRT demos | **This suite** |
+|--|---------------------|----------------|
+| Shell wrappers | Often `eval` user strings | Argv arrays, `set -euo pipefail` |
+| Model trust | Load anything | Optional `--model_sha256` (entire tree) |
+| Docs | Sparse READMEs | Interactive [`TENSORRT_DOC.md`](TENSORRT_DOC.md) |
+| Security | Undocumented | [`VULNERABILITY.md`](VULNERABILITY.md) + tests |
+| Roadmap | — | [`IMPROVEMENTS.md`](IMPROVEMENTS.md) |
+
+Upstream TF-TRT concepts: [NVIDIA TF-TRT User Guide](https://docs.nvidia.com/deeplearning/frameworks/tf-trt-user-guide/index.html).
+
+---
+
+## Quickstart
+
+```bash
+git clone https://github.com/LITDataScience/tensorrt.git
+cd tensorrt
+git submodule update --init --recursive
+pip install -e .
+
+# No-GPU sanity
+python -m unittest discover -s tftrt/examples/tests -v
+
+# ImageNet + TF-TRT FP16 (needs GPU, data, SavedModel layout)
+cd tftrt/examples/image_classification
+./scripts/resnet_v1_50.sh \
+  --data_dir=/data/imagenet/train-val-tfrecord \
+  --input_saved_model_dir=/models \
+  --use_tftrt --precision=FP16
+```
+
+Hash a SavedModel before load:
+
+```bash
+python tftrt/examples/hash_saved_model.py /path/to/SavedModel
+# then pass --model_sha256=<digest> to any benchmark
+```
+
+---
 
 ## Examples
 
-* [Image Classification](tftrt/examples/image_classification)
-* [Object Detection](tftrt/examples/object_detection)
+| Task | Path | Guide |
+|------|------|-------|
+| Image classification | [`tftrt/examples/image_classification`](tftrt/examples/image_classification) | [DOC §4.1](TENSORRT_DOC.md#41-image-classification-imagenet) |
+| Object detection | [`tftrt/examples/object_detection`](tftrt/examples/object_detection) | [DOC §4.2](TENSORRT_DOC.md#42-object-detection-coco) |
+| Transformers | [`tftrt/examples/transformers`](tftrt/examples/transformers) | [DOC §4.3](TENSORRT_DOC.md#43-transformers-bert--bart) |
+| GTC notebooks | [`tftrt/examples/presentations`](tftrt/examples/presentations) | Dynamic-shape demos |
 
+---
 
-# Using TensorRT in TensorFlow (TF-TRT)
+## Docs index
 
-This module provides necessary bindings and introduces
-`TRTEngineOp` operator that wraps a subgraph in TensorRT.
-This module is under active development.
+| Document | Audience |
+|----------|----------|
+| **[`TENSORRT_DOC.md`](TENSORRT_DOC.md)** | Everyone — interactive paths, precision matrix, CLI, creators |
+| [`CHANGELOG.md`](CHANGELOG.md) | What shipped in 0.1.0 |
+| [`VULNERABILITY.md`](VULNERABILITY.md) | Security findings & mitigations |
+| [`CRITIQUE.md`](CRITIQUE.md) | Self-review of the hardening PR |
+| [`IMPROVEMENTS.md`](IMPROVEMENTS.md) | SOTA roadmap (MLPerf, FP8, TensorRT-LLM, …) |
 
+---
 
-## Installing TF-TRT
+## Install notes
 
-Currently Tensorflow nightly builds include TF-TRT by default,
-which means you don't need to install TF-TRT separately.
-You can pull the latest TF containers from docker hub or
-install the latest TF pip package to get access to the latest TF-TRT.
+- **TF-TRT** ships with current TensorFlow GPU / NGC containers — you typically do **not** install a separate `tftrt` runtime wheel beyond this examples package.
+- **TensorRT** must be present (NGC image or [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt)).
+- Jetson: use NVIDIA’s Jetson TensorFlow packages — see [NVIDIA frameworks for Jetson](https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html).
 
-If you want to use TF-TRT on NVIDIA Jetson platform, you can find
-the download links for the relevant Tensorflow pip packages here:
-https://docs.nvidia.com/deeplearning/dgx/index.html#installing-frameworks-for-jetson
-
-
-## Installing TensorRT
-
-In order to make use of TF-TRT, you will need a local installation
-of TensorRT from the
-[NVIDIA Developer website](https://developer.nvidia.com/tensorrt).
-Installation instructions for compatibility with TensorFlow are provided on the
-[TensorFlow GPU support](https://www.tensorflow.org/install/gpu) guide.
-
-
-## Documentation
-
-[TF-TRT documentaion](https://docs.nvidia.com/deeplearning/dgx/tf-trt-user-guide/index.html)
-gives an overview of the supported functionalities, provides tutorials
-and verified models, explains best practices with troubleshooting guides.
-
-
-## Tests
-
-TF-TRT includes both Python tests and C++ unit tests.
-Most of Python tests are located in the test directory
-and they can be executed uring `bazel test` or directly
-with the Python command. Most of the C++ unit tests are
-used to test the conversion functions that convert each TF op to
-a number of TensorRT layers.
-
-
-## Compilation
-
-In order to compile the module, you need to have a local TensorRT installation
-(libnvinfer.so and respective include files). During the configuration step,
-TensorRT should be enabled and installation path should be set. If installed
-through package managers (deb,rpm), configure script should find the necessary
-components from the system automatically. If installed from tar packages, user
-has to set path to location where the library is installed during configuration.
-
-```shell
-bazel build --config=cuda --config=opt //tensorflow/tools/pip_package:build_pip_package
-bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/
+```bash
+pip install -e .   # installs local helpers (version 0.1.0)
 ```
 
+---
+
+## Contributing / starring
+
+- New models: follow the [Creator guide](TENSORRT_DOC.md#9-creator-guide-extend-the-suite).
+- Security: never reintroduce `eval` in launchers; add tests under `tftrt/examples/tests/`.
+- Love the hardening work? **[Star the repo](https://github.com/LITDataScience/tensorrt/stargazers)** and open issues with your GPU + TF/TRT versions.
+
+---
 
 ## License
 
