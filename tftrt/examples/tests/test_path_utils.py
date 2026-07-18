@@ -35,12 +35,9 @@ from path_utils import (
     verify_saved_model_sha256,
 )
 
-<<<<<<< HEAD
 # hash_saved_model CLI (sibling module)
 import hash_saved_model  # noqa: E402
 
-=======
->>>>>>> origin/master
 
 class SafeJoinUnderTest(unittest.TestCase):
 
@@ -143,7 +140,6 @@ class SavedModelSha256Test(unittest.TestCase):
                 handle.write(payload)
             self.assertEqual(sha256_file(path), hashlib.sha256(payload).hexdigest())
 
-<<<<<<< HEAD
     def test_hash_saved_model_cli_quiet(self):
         with tempfile.TemporaryDirectory() as tmp:
             self._write_minimal_saved_model(tmp)
@@ -157,8 +153,6 @@ class SavedModelSha256Test(unittest.TestCase):
             digest = buf.getvalue().strip()
             self.assertEqual(digest, sha256_directory(tmp))
 
-=======
->>>>>>> origin/master
 
 if __name__ == "__main__":
     unittest.main()
